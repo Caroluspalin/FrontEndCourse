@@ -5,58 +5,75 @@ import { ColDef } from '@ag-grid-community/core'
 import '@ag-grid-community/styles/ag-grid.css'
 import '@ag-grid-community/styles/ag-theme-alpine.css'
 import dayjs from 'dayjs'
+import { IconButton } from '@mui/material'
+import DeleteIcon from '@mui/icons-material/Delete'
 
 type Training = {
+  id: number
   date: string
   duration: number
   activity: string
   customerName: string
 }
 
+const GET_TRAININGS_URL = 'https://customer-rest-service-frontend-personaltrainer.2.rahtiapp.fi/api/gettrainings'
 const TRAININGS_URL = 'https://customer-rest-service-frontend-personaltrainer.2.rahtiapp.fi/api/trainings'
-const CUSTOMERS_URL = 'https://customer-rest-service-frontend-personaltrainer.2.rahtiapp.fi/api/customers'
-
-const columns: ColDef[] = [
-  {
-    field: 'date',
-    headerName: 'Date',
-    sortable: true,
-    filter: true,
-    flex: 1.5,
-    valueFormatter: (params) =>
-      params.value ? dayjs(params.value).format('DD.MM.YYYY HH:mm') : '',
-  },
-  { field: 'duration', headerName: 'Duration (min)', sortable: true, filter: true, flex: 1 },
-  { field: 'activity', headerName: 'Activity', sortable: true, filter: true, flex: 1 },
-  { field: 'customerName', headerName: 'Customer', sortable: true, filter: true, flex: 1.5 },
-]
 
 export default function TrainingList() {
   const [trainings, setTrainings] = useState<Training[]>([])
   const [search, setSearch] = useState('')
 
-  useEffect(() => {
-    Promise.all([
-      fetch(TRAININGS_URL).then(r => r.json()),
-      fetch(CUSTOMERS_URL).then(r => r.json()),
-    ])
-      .then(([trainingData, customerData]) => {
-        const customerMap: Record<string, string> = {}
-        customerData._embedded.customers.forEach((c: any) => {
-          customerMap[c._links.self.href] = `${c.firstname} ${c.lastname}`
-        })
-
-        const rows = trainingData._embedded.trainings.map((t: any) => ({
+  const fetchTrainings = () => {
+    fetch(GET_TRAININGS_URL)
+      .then(res => res.json())
+      .then((data: any[]) => {
+        const rows = data.map((t) => ({
+          id: t.id,
           date: t.date,
           duration: t.duration,
           activity: t.activity,
-          customerName: customerMap[t._links.customer.href] || '',
+          customerName: t.customer ? `${t.customer.firstname} ${t.customer.lastname}` : '',
         }))
-
         setTrainings(rows)
       })
       .catch(err => console.error(err))
+  }
+
+  useEffect(() => {
+    fetchTrainings()
   }, [])
+
+  const handleDelete = (training: Training) => {
+    if (window.confirm(`Delete training "${training.activity}"?`)) {
+      fetch(`${TRAININGS_URL}/${training.id}`, { method: 'DELETE' })
+        .then(() => fetchTrainings())
+        .catch(err => console.error(err))
+    }
+  }
+
+  const columns: ColDef[] = [
+    {
+      field: 'date',
+      headerName: 'Date',
+      sortable: true,
+      filter: true,
+      flex: 1.5,
+      valueFormatter: (params) =>
+        params.value ? dayjs(params.value).format('DD.MM.YYYY HH:mm') : '',
+    },
+    { field: 'duration', headerName: 'Duration (min)', sortable: true, filter: true, flex: 1 },
+    { field: 'activity', headerName: 'Activity', sortable: true, filter: true, flex: 1 },
+    { field: 'customerName', headerName: 'Customer', sortable: true, filter: true, flex: 1.5 },
+    {
+      headerName: 'Actions',
+      flex: 0.7,
+      cellRenderer: (params: any) => (
+        <IconButton size="small" color="error" onClick={() => handleDelete(params.data)} title="Delete">
+          <DeleteIcon fontSize="small" />
+        </IconButton>
+      ),
+    },
+  ]
 
   return (
     <div className="page">
