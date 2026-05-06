@@ -25,6 +25,22 @@ type Customer = {
 
 const API_URL = 'https://customer-rest-service-frontend-personaltrainer.2.rahtiapp.fi/api/customers'
 
+const exportCsv = (rows: Customer[]) => {
+  const headers = ['firstname', 'lastname', 'email', 'phone', 'streetaddress', 'postcode', 'city']
+  const escape = (val: string) => `"${(val ?? '').replace(/"/g, '""')}"`
+  const lines = [
+    headers.join(','),
+    ...rows.map(r => headers.map(h => escape((r as any)[h])).join(',')),
+  ]
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = 'customers.csv'
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function CustomerList() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [search, setSearch] = useState('')
@@ -84,6 +100,7 @@ export default function CustomerList() {
       <h1>Customers</h1>
       <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
         <Button variant="contained" onClick={() => setAddOpen(true)}>Add customer</Button>
+        <Button variant="outlined" onClick={() => exportCsv(customers)}>Export CSV</Button>
         <input
           type="text"
           placeholder="Search..."
